@@ -1,0 +1,62 @@
+```python
+# Desafio Engenheiro de dados.
+# Utilizando pyspark na Cloudera
+# 1. Número de hosts únicos
+text_log = sc.textFile("file:///home/cloudera/Downloads/access_log_Jul95,file:///home/cloudera/Downloads/access_log_Aug95")
+
+cont_hosts = text_log.map(lambda col: col.split(" - - ")).map(lambda col: (col[0],1)).reduceByKey(lambda july,august: july + august) 
+
+cont_hosts.keys().count()
+
+
+# 2. Total de errors 404
+cont1 = text_log.map(lambda col: col.split('] "'))
+
+cont2 = cont1.map(lambda col: col[1] if(col is not None and len(col) > 1) else None)
+
+cont3 = cont2.map(lambda col: col.split('" ') if(col is not None and len(col.split('" ')) > 1) else None)
+
+retBytes = cont3.map(lambda col: col[1].split(' ') if(col is not None and len(col[1].split(' ')) > 1) else None)
+
+cont5 = retBytes.map(lambda col: (col[0] if(col is not None) else "-999",1)).reduceByKey(lambda j,a: j + a)
+
+cont5.collect()
+
+
+# 3. Os 5 URLs que mais causaram erro 404
+url_erro = cont3.filter(lambda col: (col[1].split(' ')[0] if(col is not None and len(col[1].split(' ')) > 1) else None) == "404")
+
+url_erro_quebra = url_erro.map(lambda col: col[0].split(' '))
+
+url_erroKV = url_erro_quebra.map(lambda cols: (cols[1],1))
+
+url_erroCont = url_erroKV.reduceByKey(lambda j, a: j + a)
+
+url_erroCont.takeOrdered(5, key = lambda r: -r[1])
+
+
+# 4. Quantidade de erros 404 por dia.
+TimeStamp = cont1.filter(lambda col: (col[1].split('" ')[1].split(' ')[0] if(col is not None and len(col) > 1 and col[1] is not None and len(col[1].split('" ')) > 1) and col[1].split('" ')[1] is not None and col[1].split('" ')[1].split(" ") is not None and len(col[1].split('" ')[1].split(" ")) > 1 else None) == "404")
+
+TimeStampQuebra = TimeStamp.map(lambda col: col[0].split(" - - ["))
+
+TimeStampQuebraZona = TimeStampQuebra.map(lambda col: col[1].split(" "))
+
+from datetime import datetime
+
+TimeStampContador = TimeStampQuebraZona.map(lambda col: (datetime.strptime(col[0], "%d/%b/%Y:%H:%M:%S").date(),1))
+
+TimeStampContConsolida =  TimeStampContador.reduceByKey(lambda j, a: j + a)
+
+TimeStampContTotal = TimeStampContConsolida.values().reduce(lambda j,a:j+a)
+
+TimeStampContTotal / TimeStampContConsolida.keys().count()
+
+
+# 5. O total de bytes retornados
+rtnBytes = retBytes.map(lambda col: int(col[1] if(col is not None and col[1] is not None and col[1] != '-') else 0) ).reduce(lambda j,a:j+a)
+
+print(rtnBytes)
+#Foram 65524307881 de bytes retornados
+###
+```
